@@ -1,0 +1,27 @@
+[project]
+name = "postman-and-fiddler"
+version = "0.1.0"
+description = "Postman API-тесты (httpbin) + офлайн-разбор Fiddler .saz с проверкой security-заголовков и кук."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+sazcheck = "sazcheck.cli:main"
+
+[tool.setuptools]
+packages = ["sazcheck"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

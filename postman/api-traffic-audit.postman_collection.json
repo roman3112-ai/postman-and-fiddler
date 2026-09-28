@@ -1,0 +1,466 @@
+{
+  "info": {
+    "name": "API traffic audit — httpbin",
+    "description": "Учебная Postman-коллекция для тренировки функционального и негативного тестирования REST API. Гоняется против публичного httpbin.org (echo-сервис), поэтому безопасно запускать в CI без ключей и стендов. Каждый запрос — отдельный тест-кейс с проверками в разделе Tests (pm.test).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Basic Auth",
+      "item": [
+        {
+          "name": "Успешная авторизация",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {"key": "username", "value": "qa_user", "type": "string"},
+                {"key": "password", "value": "qa_pass", "type": "string"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/basic-auth/qa_user/qa_pass",
+              "host": ["{{baseUrl}}"],
+              "path": ["basic-auth", "qa_user", "qa_pass"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Тело подтверждает авторизацию', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.authenticated).to.eql(true);",
+                  "    pm.expect(body.user).to.eql('qa_user');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Неверный пароль (негативный тест)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {"key": "username", "value": "qa_user", "type": "string"},
+                {"key": "password", "value": "wrong_pass", "type": "string"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/basic-auth/qa_user/qa_pass",
+              "host": ["{{baseUrl}}"],
+              "path": ["basic-auth", "qa_user", "qa_pass"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 401 при неверном пароле', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Есть заголовок WWW-Authenticate', function () {",
+                  "    pm.response.to.have.header('WWW-Authenticate');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - CRUD (echo)",
+      "item": [
+        {
+          "name": "Создание пользователя (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Roman\",\n    \"job\": \"QA Engineer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/anything/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["anything", "users"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Сервер вернул тот же JSON и метод POST', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.method).to.eql('POST');",
+                  "    pm.expect(body.json.name).to.eql('Roman');",
+                  "    pm.expect(body.json.job).to.eql('QA Engineer');",
+                  "});",
+                  "",
+                  "// сохраняем имя в переменные окружения — пригодится в PUT-запросе (chaining)",
+                  "pm.environment.set('lastUserName', pm.response.json().json.name);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Обновление пользователя (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"{{lastUserName}}\",\n    \"job\": \"Senior QA Engineer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/anything/users/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["anything", "users", "1"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Метод PUT и имя из предыдущего запроса подставились', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.method).to.eql('PUT');",
+                  "    pm.expect(body.json.name).to.eql(pm.environment.get('lastUserName'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Удаление пользователя (DELETE)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/anything/users/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["anything", "users", "1"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200 и метод DELETE', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().method).to.eql('DELETE');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Коды ответа",
+      "item": [
+        {
+          "name": "GET /status/200",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/status/200",
+              "host": ["{{baseUrl}}"],
+              "path": ["status", "200"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /status/404 (негативный тест)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/status/404",
+              "host": ["{{baseUrl}}"],
+              "path": ["status", "404"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /status/500 (негативный тест)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/status/500",
+              "host": ["{{baseUrl}}"],
+              "path": ["status", "500"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 500', function () {",
+                  "    pm.response.to.have.status(500);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Заголовки и cookies",
+      "item": [
+        {
+          "name": "Security-заголовки в ответе",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/response-headers?X-Frame-Options=DENY&X-Content-Type-Options=nosniff",
+              "host": ["{{baseUrl}}"],
+              "path": ["response-headers"],
+              "query": [
+                {"key": "X-Frame-Options", "value": "DENY"},
+                {"key": "X-Content-Type-Options", "value": "nosniff"}
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('X-Frame-Options проставлен верно', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Frame-Options')).to.eql('DENY');",
+                  "});",
+                  "",
+                  "pm.test('X-Content-Type-Options проставлен верно', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.eql('nosniff');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Установка cookie",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cookies/set/session_id/abc123",
+              "host": ["{{baseUrl}}"],
+              "path": ["cookies", "set", "session_id", "abc123"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('После редиректа сервер подтвердил cookie', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().cookies.session_id).to.eql('abc123');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cookie сохраняется между запросами",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cookies",
+              "host": ["{{baseUrl}}"],
+              "path": ["cookies"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('cookie jar сам подставил ранее установленную куку', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().cookies.session_id).to.eql('abc123');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Негативные сценарии",
+      "item": [
+        {
+          "name": "POST без обязательного заголовка Content-Type",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "не-JSON строка вместо тела запроса"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/anything/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["anything", "users"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Сервер всё равно отвечает 200, но json-поле пустое', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().json).to.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Обращение к несуществующему ресурсу",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/status/400",
+              "host": ["{{baseUrl}}"],
+              "path": ["status", "400"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 400 на некорректный запрос', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Проверка времени ответа",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/delay/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["delay", "1"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ответ пришёл быстрее 5 секунд', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
